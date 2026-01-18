@@ -1,0 +1,109 @@
+// Prisma Schema for YouTube Video Management Dashboard
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - stores authenticated users from Google OAuth
+model User {
+  id            String   @id @default(cuid())
+  googleId      String   @unique // Google's unique user ID (sub claim)
+  email         String   @unique
+  name          String?
+  avatarUrl     String?
+  channelId     String?  // YouTube channel ID
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  oauthToken    OAuthToken?
+  videos        Video[]
+  notes         Note[]
+  eventLogs     EventLog[]
+
+  @@index([email])
+  @@index([googleId])
+}
+
+// OAuthToken model - securely stores OAuth tokens
+model OAuthToken {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  accessToken           String    // Encrypted access token
+  refreshToken          String    // Encrypted refresh token
+  accessTokenExpiresAt  DateTime
+  scope                 String    // Granted OAuth scopes
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Video model - stores video metadata cache
+model Video {
+  id              String   @id @default(cuid())
+  youtubeVideoId  String   // YouTube's video ID
+  userId          String   // Owner of the video
+  title           String
+  description     String?  @db.Text
+  thumbnailUrl    String?
+  viewCount       Int      @default(0)
+  likeCount       Int      @default(0)
+  commentCount    Int      @default(0)
+  publishedAt     DateTime?
+  privacyStatus   String   @default("unlisted") // public, private, unlisted
+  lastSyncedAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes           Note[]
+
+  @@unique([youtubeVideoId, userId])
+  @@index([userId])
+  @@index([youtubeVideoId])
+}
+
+// Note model - user notes tied to videos
+model Note {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  tags      String[] // Array of tag strings
+  videoId   String   // Reference to Video
+  userId    String   // Owner of the note
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([videoId])
+  @@index([tags])
+}
+
+// EventLog model - comprehensive event logging
+model EventLog {
+  id        String   @id @default(cuid())
+  eventType String   // Type of event (login, fetch_video, comment_added, etc.)
+  metadata  Json?    // Additional event-specific data
+  userId    String?  // User who triggered the event (nullable for system events)
+  timestamp DateTime @default(now())
+
+  // Relations
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventType])
+  @@index([userId])
+  @@index([timestamp])
+}
+
