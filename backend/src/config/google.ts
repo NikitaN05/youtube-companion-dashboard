@@ -1,11 +1,9 @@
 import { google } from 'googleapis';
+import dotenv from 'dotenv';
+import path from 'path';
 
-// Google OAuth2 client configuration
-export const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
+// Ensure environment variables are loaded from the correct path
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // YouTube Data API v3 scopes
 export const YOUTUBE_SCOPES = [
@@ -15,6 +13,13 @@ export const YOUTUBE_SCOPES = [
   'email',                                                  // User email
   'profile'                                                 // User profile info
 ];
+
+// Create OAuth2 client directly
+export const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
 
 // Generate the OAuth URL for user consent
 export const getAuthUrl = (): string => {
