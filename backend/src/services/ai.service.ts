@@ -2,10 +2,22 @@ import OpenAI from 'openai';
 import EventService, { EventType } from './event.service';
 import { ApiError } from '../middleware/errorHandler';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Lazy-loaded OpenAI client (only initialized when needed)
+let openaiClient: OpenAI | null = null;
+
+const getOpenAIClient = (): OpenAI => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new ApiError(500, 'OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
+  }
+  
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+  }
+  
+  return openaiClient;
+};
 
 interface TitleSuggestion {
   title: string;
@@ -26,10 +38,6 @@ export class AIService {
     description: string,
     videoId?: string
   ): Promise<TitleSuggestion[]> {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new ApiError(500, 'OpenAI API key not configured');
-    }
-
     try {
       const prompt = `You are a YouTube SEO expert. Based on the following video information, suggest exactly 3 improved titles that would perform better in terms of engagement, click-through rate, and searchability.
 
@@ -54,6 +62,7 @@ Respond in JSON format with exactly 3 suggestions:
   ]
 }`;
 
+      const openai = getOpenAIClient();
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
