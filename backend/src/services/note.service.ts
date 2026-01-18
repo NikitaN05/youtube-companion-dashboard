@@ -20,6 +20,21 @@ interface NoteSearchParams {
   limit?: number;
 }
 
+// Helper to parse tags from JSON string
+const parseTags = (tagsJson: string): string[] => {
+  try {
+    return JSON.parse(tagsJson);
+  } catch {
+    return [];
+  }
+};
+
+// Helper to format note with parsed tags
+const formatNote = (note: any) => ({
+  ...note,
+  tags: parseTags(note.tags)
+});
+
 /**
  * Note Service
  * Handles CRUD operations for video notes
@@ -44,7 +59,7 @@ export class NoteService {
     const note = await prisma.note.create({
       data: {
         content: input.content,
-        tags: input.tags || [],
+        tags: JSON.stringify(input.tags || []),
         videoId: input.videoId,
         userId
       }
@@ -57,7 +72,7 @@ export class NoteService {
       tags: input.tags
     });
 
-    return note;
+    return formatNote(note);
   }
 
   /**
@@ -72,7 +87,7 @@ export class NoteService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return notes;
+    return notes.map(formatNote);
   }
 
   /**
@@ -88,15 +103,14 @@ export class NoteService {
     // Keyword search in content
     if (keyword) {
       where.content = {
-        contains: keyword,
-        mode: 'insensitive'
+        contains: keyword
       };
     }
 
-    // Filter by tag
+    // Filter by tag - search in JSON string
     if (tag) {
       where.tags = {
-        has: tag
+        contains: `"${tag}"`
       };
     }
 
@@ -121,7 +135,7 @@ export class NoteService {
     ]);
 
     return {
-      notes,
+      notes: notes.map(formatNote),
       pagination: {
         page,
         limit,
@@ -156,7 +170,7 @@ export class NoteService {
       throw new ApiError(404, 'Note not found');
     }
 
-    return note;
+    return formatNote(note);
   }
 
   /**
@@ -179,7 +193,7 @@ export class NoteService {
       where: { id: noteId },
       data: {
         ...(input.content !== undefined && { content: input.content }),
-        ...(input.tags !== undefined && { tags: input.tags })
+        ...(input.tags !== undefined && { tags: JSON.stringify(input.tags) })
       }
     });
 
@@ -189,7 +203,7 @@ export class NoteService {
       updatedFields: Object.keys(input)
     });
 
-    return updatedNote;
+    return formatNote(updatedNote);
   }
 
   /**
@@ -230,7 +244,7 @@ export class NoteService {
     });
 
     // Flatten and deduplicate tags
-    const allTags = notes.flatMap(note => note.tags);
+    const allTags = notes.flatMap(note => parseTags(note.tags));
     const uniqueTags = [...new Set(allTags)].sort();
 
     return uniqueTags;
@@ -244,8 +258,7 @@ export class NoteService {
       where: {
         userId,
         content: {
-          contains: keyword,
-          mode: 'insensitive'
+          contains: keyword
         }
       },
       include: {
@@ -260,9 +273,8 @@ export class NoteService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return notes;
+    return notes.map(formatNote);
   }
 }
 
 export default NoteService;
-

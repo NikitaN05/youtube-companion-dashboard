@@ -19,6 +19,22 @@ interface EventMetadata {
   [key: string]: any;
 }
 
+// Helper to parse metadata from JSON string
+const parseMetadata = (metadataJson: string | null): any => {
+  if (!metadataJson) return null;
+  try {
+    return JSON.parse(metadataJson);
+  } catch {
+    return null;
+  }
+};
+
+// Helper to format event with parsed metadata
+const formatEvent = (event: any) => ({
+  ...event,
+  metadata: parseMetadata(event.metadata)
+});
+
 /**
  * Service for logging all application events
  * MANDATORY: All significant actions must be logged
@@ -37,11 +53,11 @@ export class EventService {
         data: {
           eventType,
           userId,
-          metadata: metadata || {},
+          metadata: metadata ? JSON.stringify(metadata) : null,
           timestamp: new Date()
         }
       });
-      return event;
+      return formatEvent(event);
     } catch (error) {
       // Log to console but don't throw - event logging shouldn't break the app
       console.error('Failed to log event:', error);
@@ -88,7 +104,7 @@ export class EventService {
     ]);
 
     return {
-      events,
+      events: events.map(formatEvent),
       pagination: {
         page,
         limit,
@@ -132,7 +148,7 @@ export class EventService {
     ]);
 
     return {
-      events,
+      events: events.map(formatEvent),
       pagination: {
         page,
         limit,
@@ -164,4 +180,3 @@ export class EventService {
 }
 
 export default EventService;
-
